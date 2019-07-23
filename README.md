@@ -1,2 +1,2 @@
-# PS1
-CV
+# CV and deep learning
+
