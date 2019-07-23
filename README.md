@@ -1,2 +1,2 @@
-# CV and deep learning
+# CV and DL
 
