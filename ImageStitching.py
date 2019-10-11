@@ -1,89 +1,286 @@
-import numpy as np
 import cv2
 
-# coding: utf-8
 import numpy as np
-import cv2
 
-left_img = cv2.imread("left.jpg")
-left_img = cv2.resize(left_img, (600, 400))
-right_img = cv2.imread("right.jpg")
-right_img = cv2.resize(right_img, (600, 400))
-left_gray = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-right_gray = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
+import matplotlib.pyplot as plt
 
-hessian = 300
-surf = cv2.xfeatures2d.SIFT_create(hessian) # 将Hessian Threshold设置为400,阈值越大能检测的特征就越少
-kp1, des1 = surf.detectAndCompute(left_gray, None)  # 查找关键点和描述符
-kp2, des2 = surf.detectAndCompute(right_gray, None)
+import imageio
 
-# kp1s = np.float32([kp.pt for kp in kp1])
-# kp2s = np.float32([kp.pt for kp in kp2])
+cv2.ocl.setUseOpenCL(False)
 
-# 显示特征点
-img_with_drawKeyPoint_left = cv2.drawKeypoints(left_gray, kp1, np.array([]), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-cv2.imshow("img_with_drawKeyPoint_left", img_with_drawKeyPoint_left)
+# select the image id (valid values 1,2,3, or 4)
 
-img_with_drawKeyPoint_right = cv2.drawKeypoints(right_gray, kp2, np.array([]), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-cv2.imshow("img_with_drawKeyPoint_right", img_with_drawKeyPoint_right)
+imageId = 1
 
+feature_extractor = 'sift'
 
+feature_matching = 'bf'
 
-'''
-BFMatcher简称暴力匹配，意思就是尝试所有可能匹配，实现最佳匹配。
+# read images and transform them to grayscale
 
-FlannBasedMatcher简称最近邻近似匹配。
-是一种近似匹配方法，并不追求完美！，因此速度更快。
-可以调整FlannBasedMatcher参数改变匹配精度或改变算法速度。
-参考：https://blog.csdn.net/claroja/article/details/83411108
-'''
-FLANN_INDEX_KDTREE = 0  # 建立FLANN匹配器的参数
+# Make sure that the train image is the image that will be transformed
 
-indexParams = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)  # 配置索引，密度树的数量为5
-searchParams = dict(checks=50)  # 指定递归次数
-# FlannBasedMatcher：是目前最快的特征匹配算法（最近邻搜索）
-flann = cv2.FlannBasedMatcher(indexParams, searchParams)  # 建立匹配器
+trainImg = cv2.imread('./input/foto' + str(imageId) + 'A.jpg')
 
-# 参考https://docs.opencv.org/master/db/d39/classcv_1_1DescriptorMatcher.html#a378f35c9b1a5dfa4022839a45cdf0e89
-'''
-int queryIdx –>是测试图像的特征点描述符（descriptor）的下标，同时也是描述符对应特征点（keypoint)的下标。
+trainImg = cv2.cvtColor(trainImg, cv2.COLOR_BGR2RGB)
 
-int trainIdx –> 是样本图像的特征点描述符的下标，同样也是相应的特征点的下标。
+trainImg_gray = cv2.cvtColor(trainImg, cv2.COLOR_RGB2GRAY)
 
-int imgIdx –>当样本是多张图像的话有用。
+queryImg = cv2.imread('input/foto' + str(imageId) + 'B.jpg')
 
-float distance –>代表这一对匹配的特征点描述符（本质是向量）的欧氏距离，数值越小也就说明两个特征点越相像。
-'''
+# Opencv defines the color channel in the order BGR. 
 
-matches = flann.knnMatch(des1, des2, k=2)  # 得出匹配的关键点
+# Transform it to RGB to be compatible to matplotlib
+
+queryImg = cv2.cvtColor(queryImg, cv2.COLOR_BGR2RGB)
+
+queryImg_gray = cv2.cvtColor(queryImg, cv2.COLOR_RGB2GRAY)
+
+# 显示输入的两张图片
+
+fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, constrained_layout=False, figsize=(16, 9))
+
+ax1.imshow(queryImg, cmap="gray")
+
+ax1.set_xlabel("Query image", fontsize=14)
+
+ax2.imshow(trainImg, cmap="gray")
+
+ax2.set_xlabel("Train image (Image to be transformed)", fontsize=14)
+
+plt.savefig("./output/input_img_" + str(imageId) + '.jpeg', bbox_inches='tight', dpi=300, optimize=True, format='jpeg')
+
+plt.show()
 
 
-good = []
-# 提取优秀的特征点
-for m, n in matches:
-    if m.distance < 0.7 * n.distance:  # 如果第一个邻近距离比第二个邻近距离的0.7倍小，则保留
-        good.append(m)
+def detectAndDescribe(image, method=None):
+	"""
 
-src_pts = np.array([kp1[m.queryIdx].pt for m in good])  # 查询图像的特征描述子索引
-dst_pts = np.array([kp2[m.trainIdx].pt for m in good])  # 训练(模板)图像的特征描述子索引
+    Compute key points and feature descriptors using an specific method
+
+    """
+
+	assert method is not None, "You need to define a feature detection method. Values are: 'sift', 'surf'"
+
+	# detect and extract features from the image
+
+	if method == 'sift':
+
+		descriptor = cv2.xfeatures2d.SIFT_create()
+
+	elif method == 'surf':
+
+		descriptor = cv2.xfeatures2d.SURF_create()
+
+	elif method == 'brisk':
+
+		descriptor = cv2.BRISK_create()
+
+	elif method == 'orb':
+
+		descriptor = cv2.ORB_create()
+
+	# get keypoints and descriptors
+
+	(kps, features) = descriptor.detectAndCompute(image, None)
+
+	return (kps, features)
 
 
-# findHomography参考https://docs.opencv.org/master/d9/d0c/group__calib3d.html#ga4abc2ece9fab9398f2e560d53c8c9780
-# 单应矩阵:https://www.cnblogs.com/wangguchangqing/p/8287585.html
-H = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5)  # 生成变换矩阵
+kpsA, featuresA = detectAndDescribe(trainImg_gray, method=feature_extractor)
 
-h1, w1 = left_gray.shape[:2]
-h2, w2 = right_gray.shape[:2]
-shift = np.array([[1.0, 0, w1], [0, 1.0, 0], [0, 0, 1.0]])
-# 点积
-M = np.dot(shift, H[0])  # 获取左边图像到右边图像的投影映射关系
+kpsB, featuresB = detectAndDescribe(queryImg_gray, method=feature_extractor)
 
-dst = cv2.warpPerspective(left_img, M, (w1+w2, max(h1, h2)))  # 透视变换，新图像可容纳完整的两幅图
-cv2.imshow('left_img', dst)  # 显示，第一幅图已在标准位置
-dst[0:h2, w1:w1+w2] = right_img  # 将第二幅图放在右侧
-# cv2.imwrite('tiled.jpg',dst_corners)
-cv2.imshow('total_img', dst)
-cv2.imshow('leftgray', left_img)
-cv2.imshow('rightgray', right_img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# 显示在两张图片中检测到的关键点
+
+# display the keypoints and features detected on both images
+
+fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), constrained_layout=False)
+
+ax1.imshow(cv2.drawKeypoints(trainImg_gray, kpsA, None, color=(0, 255, 0)))
+
+ax1.set_xlabel("(a)", fontsize=14)
+
+ax2.imshow(cv2.drawKeypoints(queryImg_gray, kpsB, None, color=(0, 255, 0)))
+
+ax2.set_xlabel("(b)", fontsize=14)
+
+plt.savefig("./output/" + feature_extractor + "_features_img_" + str(imageId) + '.jpeg', bbox_inches='tight',
+
+            dpi=300, optimize=True, format='jpeg')
+
+plt.show()
+
+
+def createMatcher(method, crossCheck):
+	"Create and return a Matcher Object"
+
+	if method == 'sift' or method == 'surf':
+
+		bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=crossCheck)
+
+	elif method == 'orb' or method == 'brisk':
+
+		bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=crossCheck)
+
+	return bf
+
+
+def matchKeyPointsBF(featuresA, featuresB, method):
+	bf = createMatcher(method, crossCheck=True)
+
+	# Match descriptors.
+
+	best_matches = bf.match(featuresA, featuresB)
+
+	# Sort the features in order of distance.
+
+	# The points with small distance (more similarity) are ordered first in the vector
+
+	rawMatches = sorted(best_matches, key=lambda x: x.distance)
+
+	print("Raw matches (Brute force):", len(rawMatches))
+
+	return rawMatches
+
+
+def matchKeyPointsKNN(featuresA, featuresB, ratio, method):
+	bf = createMatcher(method, crossCheck=False)
+
+	# compute the raw matches and initialize the list of actual matches
+
+	rawMatches = bf.knnMatch(featuresA, featuresB, 2)
+
+	print("Raw matches (knn):", len(rawMatches))
+
+	matches = []
+
+	# loop over the raw matches
+
+	for m, n in rawMatches:
+
+		# ensure the distance is within a certain ratio of each
+
+		# other (i.e. Lowe's ratio test)
+
+		if m.distance < n.distance * ratio:
+			matches.append(m)
+
+	return matches
+
+
+print("Using: {} feature matcher".format(feature_matching))
+
+fig = plt.figure(figsize=(20, 8))
+
+if feature_matching == 'bf':
+
+	matches = matchKeyPointsBF(featuresA, featuresB, method=feature_extractor)
+
+	img3 = cv2.drawMatches(trainImg, kpsA, queryImg, kpsB, matches[:100],
+
+	                       None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+elif feature_matching == 'knn':
+
+	matches = matchKeyPointsKNN(featuresA, featuresB, ratio=0.75, method=feature_extractor)
+
+	img3 = cv2.drawMatches(trainImg, kpsA, queryImg, kpsB, np.random.choice(matches, 100),
+
+	                       None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+plt.imshow(img3)
+
+plt.axis('off')
+
+plt.savefig("./output/" + feature_matching + "_matching_img_" + str(imageId) + '.jpeg', bbox_inches='tight',
+
+            dpi=300, optimize=True, format='jpeg')
+
+plt.show()
+
+
+def getHomography(kpsA, kpsB, featuresA, featuresB, matches, reprojThresh):
+	# convert the keypoints to numpy arrays
+
+	kpsA = np.float32([kp.pt for kp in kpsA])
+
+	kpsB = np.float32([kp.pt for kp in kpsB])
+
+	if len(matches) > 4:
+
+		# construct the two sets of points
+
+		ptsA = np.float32([kpsA[m.queryIdx] for m in matches])
+
+		ptsB = np.float32([kpsB[m.trainIdx] for m in matches])
+
+		# estimate the homography between the sets of points
+
+		(H, status) = cv2.findHomography(ptsA, ptsB, cv2.RANSAC,
+
+		                                 reprojThresh)
+
+		return (matches, H, status)
+
+	else:
+
+		return None
+
+
+M = getHomography(kpsA, kpsB, featuresA, featuresB, matches, reprojThresh=4)
+
+if M is None:
+	print("Error!")
+
+(matches, H, status) = M
+
+print(H)
+
+# Apply a horizontal panorama
+
+width = queryImg.shape[1] + trainImg.shape[1]
+
+height = max(queryImg.shape[0], trainImg.shape[0])
+
+# otherwise, apply a perspective warp to stitch the images
+
+# together
+
+(matches, H, status) = M
+
+result = cv2.warpPerspective(trainImg, H,
+
+                             (width, height))
+
+result[0:queryImg.shape[0], 0:queryImg.shape[1]] = queryImg
+
+plt.figure(figsize=(20, 10))
+
+plt.axis('off')
+
+plt.imshow(result)
+
+imageio.imwrite("./output/horizontal_panorama_img_" + str(imageId) + '.jpeg', result)
+
+plt.show()
+
+# Apply a vertical panorama
+
+width = max(trainImg.shape[1], queryImg.shape[1])
+
+height = trainImg.shape[0] + queryImg.shape[0]
+
+result = cv2.warpPerspective(trainImg, H, (width, height))
+
+result[0:queryImg.shape[0], :] = queryImg
+
+plt.figure(figsize=(20, 10))
+
+plt.imshow(result)
+
+imageio.imwrite("./output/vertical_panorama_img_" + str(imageId) + '.jpeg', result)
+
+plt.axis('off')
+
+plt.show()
