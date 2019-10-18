@@ -2,7 +2,7 @@ import pandas as pd
 import os
 from PIL import Image
 
-ROOTS = 'E:\\DataSet\\慧科\\动物多分类\\'
+ROOTS = 'D:\\git\\learngit\\animal-classfication\\dataset\\'
 PHASE = ['train', 'val']
 CLASSES = ['Mammals', 'Birds']  # [0,1]
 SPECIES = ['rabbits','rats', 'chickens']
