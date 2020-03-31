@@ -99,7 +99,7 @@ class Data_annotation:
             # draw = ImageDraw.Draw(img)
             # draw.rectangle(rect, outline='green')
             # draw.point(points_zip, (255, 0, 0))
-            # img.save(r'H:\DataSet\慧科\人脸关键点检测\result\{:d}.jpg'.format(index))
+            # img.save(r'H:\DataSet\result\{:d}.jpg'.format(index))
             # # plt.imshow(img)
             # # plt.show()
 
